@@ -7,7 +7,12 @@
 		{
 			"Name": "Unreal2CPP",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"CoreUObject",
+				"DeveloperSettings",
+				"Engine"
+			]
 		},
 		{
 			"Name": "Unreal2CPPEditor",
