@@ -3,6 +3,7 @@
 
 #include "LambdaActor.h"
 #include "Algo/ForEach.h"
+#include "Async/Async.h"
 
 // Sets default values
 ALambdaActor::ALambdaActor()
@@ -245,6 +246,77 @@ void ALambdaActor::SpawnEnemyWithID(int32 EnemyID)
 				}
 			}),
 		2.0f, false);
+}
+
+void ALambdaActor::DoHeavyCalculationThread()
+{
+
+	uint32 GameThreadId = FPlatformTLS::GetCurrentThreadId();
+	UE_LOG(LogTemp, Warning, TEXT("ID Game Thread: %d"), GameThreadId);
+
+	
+
+	Async(EAsyncExecution::Thread,
+		[this]()
+		{
+
+			TArray<int32> ItemsToProcess;
+
+			uint32 GameThreadId = FPlatformTLS::GetCurrentThreadId();
+			UE_LOG(LogTemp, Warning, TEXT("ID Game Thread: %d"), GameThreadId);
+
+			ResultActor = 0;
+
+			// 1. calcolo pesante
+			int32 Result = ResultActor;
+			for (int i = 0; i < Iterations; i++)
+			{
+				Result += i;
+				ItemsToProcess.Add(i);
+				//UE_LOG(LogTemp, Display, TEXT("Added: %d"), i);
+			}
+
+			// 2. Torniamo nel nostro game thread
+			/*
+			Async(EAsyncExecution::TaskGraph,
+				[this, Result, MovedArray = MoveTemp(ItemsToProcess)]()
+				{
+					ResultArrayActor = MovedArray;
+					this->ResultActor = Result;
+				}
+			);
+			
+			*/
+
+			AsyncTask(ENamedThreads::GameThread,
+				[this, Result, MovedArray = MoveTemp(ItemsToProcess)]()
+				{
+					//ResultArrayActor = MovedArray;
+					this->ResultActor = Result;
+				}
+			);
+		}
+	);
+	
+}
+
+void ALambdaActor::DoHeavyCalculationGameThread()
+{
+	TArray<int32> ItemsToProcess;
+	ResultActor = 0;
+	int32 Result = ResultActor;
+	for (int i = 0; i < Iterations; i++)
+	{
+		Result += i;
+		//ResultArrayActor.Add(i);
+		//UE_LOG(LogTemp, Display, TEXT("Added: %d"), i);
+	}
+
+	//ResultArrayActor = ItemsToProcess;
+
+	UE_LOG(LogTemp, Display, TEXT("Finito di controllare tutti gli elementi"));
+
+	ResultActor = Result;
 }
 
 

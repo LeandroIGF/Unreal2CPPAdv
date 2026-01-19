@@ -71,4 +71,21 @@ public:
 
 	void SpawnEnemyWithID(int32 EnemyID);
 
+	// Multithread
+
+	UFUNCTION(BlueprintCallable, Category = "Actor MultiThread")
+	void DoHeavyCalculationThread();
+	
+	UFUNCTION(BlueprintCallable, Category = "Actor MultiThread")
+	void DoHeavyCalculationGameThread();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actor MultiThread")
+	int32 ResultActor = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actor MultiThread")
+	int32 Iterations = 100000 ;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actor MultiThread")
+	TArray<int32> ResultArrayActor;
+
 };
