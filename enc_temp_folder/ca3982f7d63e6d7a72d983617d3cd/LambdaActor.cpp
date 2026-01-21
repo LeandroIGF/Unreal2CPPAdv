@@ -393,10 +393,9 @@ void ALambdaActor::Esercizio2_Inventory()
 					for (int32 Number : this->InventoryArray)
 					{
 						// attenzione a fare log con tanti elementi
-						// da non fare solo per vedere il risultato
-						//
+						UE_LOG(LogTemp, Display, TEXT("%d"), Number);
 					}
-					UE_LOG(LogTemp, Display, TEXT("FINITO DI ORDINARE L'INVENTARIO"));
+
 					// da fare solo se chiamato ogni tanto e non in maniera continua
 					// clean sorted data array
 					Async(EAsyncExecution::ThreadPool, [ArrayToDestroy = MoveTemp(SortedData)]()

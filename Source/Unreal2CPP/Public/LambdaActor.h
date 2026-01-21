@@ -88,4 +88,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actor MultiThread")
 	TArray<int32> ResultArrayActor;
 
+	// Esercizio 1
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Actor MultiThread")
+	void Esercizio1_FindPrimeNumbers();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Esercizio 1")
+	int32 PrimeNumbersResult;
+
+	// Esercizio 2
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Actor MultiThread")
+	void Esercizio2_Inventory();
+
+	TArray<int32> InventoryArray;
+
 };
