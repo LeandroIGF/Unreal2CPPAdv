@@ -89,6 +89,12 @@ void ALambdaActor::BeginPlay()
 			false // single shot
 		);
 	}
+
+
+	//FRUNNABLE
+	UE_LOG(LogTemp, Display, TEXT("ACTOR: THREAD AVVIATO"));
+	MyRunnableInstance = new FMyRunnable();
+	
 }
 
 void ALambdaActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -99,8 +105,17 @@ void ALambdaActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
 	}
 
-	Super::EndPlay(EndPlayReason);
 	
+
+	if (MyRunnableInstance)
+	{
+		MyRunnableInstance->ShutdownThread();
+		delete MyRunnableInstance;
+		MyRunnableInstance = nullptr;
+		UE_LOG(LogTemp, Display, TEXT("ACTOR: THREAD SPENTO E PULITO"));
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 // Called every frame

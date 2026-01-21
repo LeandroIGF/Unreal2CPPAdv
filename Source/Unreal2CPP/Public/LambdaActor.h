@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "FMyRunnable.h"
 #include "LambdaActor.generated.h"
+
 
 // declare single delegate type
 DECLARE_DELEGATE_OneParam(FOnTaskComplete, bool /*bSuccess*/);
@@ -101,5 +103,9 @@ public:
 	void Esercizio2_Inventory();
 
 	TArray<int32> InventoryArray;
+
+	//FRUNNABLE 
+
+	FMyRunnable* MyRunnableInstance = nullptr;
 
 };
