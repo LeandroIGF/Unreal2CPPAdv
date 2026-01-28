@@ -7,19 +7,11 @@
 #include "Components/BoxComponent.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Engine/World.h"
+#include "VoxelGridSubsystem.h" // Per accedere all'enum EVoxelState
+
 #include "VoxelActor.generated.h"
 
-enum class EVoxelState : uint8
-{
-	Unknown,	// Not Initialized
-	Free,		// Free to move
-	Blocked		// Obstacle
-};
-
-struct FVoxelData
-{
-	EVoxelState State = EVoxelState::Unknown;
-};
+// Nota: EVoxelState e FVoxelData ora sono in VoxelGridSubsystem.h
 
 UCLASS()
 class VOXELGRIDPATHFINDING_API AVoxelActor : public AActor
@@ -40,12 +32,8 @@ public:
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 	
-	// Voxel Grid CONFIGURATION
-	UPROPERTY(EditAnywhere, Category = "Grid Config")
-	float VoxelSize = 100.f; // Dimension cube size
+	// Voxel Grid CONFIGURATION (Now in Project Settings)
 
-	UPROPERTY(EditAnywhere, Category = "Grid Config")
-	int32 MaxRequestsPerTick = 5; // Max pathfinding requests to process per tick
 
 	// Mesh to visualize
 	UPROPERTY(EditAnywhere, Category = "Visualization")
@@ -62,36 +50,21 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Components")
 	TObjectPtr<UHierarchicalInstancedStaticMeshComponent> HISM_Block;
 
-	// API FUNCTIONS
-
+	// API FUNCTIONS WAPPERS
 	UFUNCTION(BlueprintCallable, Category = "Voxel Grid")
 	void RequestRegionAsyn(FVector Center, float Radius);
 
-
-	// Helpers
-
-	FIntVector WorldToGrid(FVector WorldPosition) const;
-	FVector GridToWorld(FIntVector GridPos) const;
-
 private:
 
-	//Internal Voxel Grid Data
+	// Reference to Subsystem
+	UPROPERTY()
+	UVoxelGridSubsystem* VoxelSubsystem;
 
-	// Thread Safe in lettura e scrittura dal nostro Game Thread
-	TMap<FIntVector, FVoxelData> VoxelGrid;
+	// Function bound to Subsystem Event
+	UFUNCTION()
+	void OnVoxelUpdated(const FIntVector& Coord, EVoxelState NewState);
 
-	// Coda di lavoro per la fisica
-	TArray<FIntVector> GenerationQueue;
-
-	// Mappa per associare le richieste async (Handle) alle coordinate
-	TMap<FTraceHandle, FIntVector> PendingTraceHandle;
-
-	// Delegato per gestire i risultati delle tracce
-	FOverlapDelegate OverlapDelegate;
-
-	// LOGIC FUNCTIONS
-
-	void ProcessQueue();
-	void OnTraceCompleted(const FTraceHandle& Handle, FOverlapDatum& OverlapData);
+	UFUNCTION()
+	void OnPathFound(const TArray<FVector>& PathPoints);
 
 };

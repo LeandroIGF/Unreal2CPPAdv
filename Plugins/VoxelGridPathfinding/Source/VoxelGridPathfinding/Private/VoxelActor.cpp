@@ -1,13 +1,14 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 
 #include "VoxelActor.h"
+#include "VoxelGridSubsystem.h"
+#include "Engine/World.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AVoxelActor::AVoxelActor()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false; // No more tick needed for logic!
 
 	// 1. Setup Volume Component
 	Volume = CreateDefaultSubobject<UBoxComponent>(TEXT("Volume"));
@@ -21,12 +22,6 @@ AVoxelActor::AVoxelActor()
 	HISM_Block->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	HISM_Block->SetCastShadow(false);
 	HISM_Block->SetCanEverAffectNavigation(false);
-
-	// 3. Bind del delegate per la risposta asincrona
-
-	OverlapDelegate.BindUObject(this, &AVoxelActor::OnTraceCompleted);
-
-
 }
 
 // Called when the game starts or when spawned
@@ -34,18 +29,25 @@ void AVoxelActor::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// Get Subsystem
+	VoxelSubsystem = GetWorld()->GetSubsystem<UVoxelGridSubsystem>();
+
+	if (VoxelSubsystem)
+	{
+		// 配置 Subsystem
+		// VoxelSubsystem->InitializeGrid(VoxelSize, MaxRequestsPerTick); // Config is auto via settings now
+
+		// Bind to updates
+		VoxelSubsystem->OnVoxelUpdated.AddDynamic(this, &AVoxelActor::OnVoxelUpdated);
+		VoxelSubsystem->OnOnPathFound.AddDynamic(this, &AVoxelActor::OnPathFound);
+	}
 }
 
 // Called every frame
 void AVoxelActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	// Simulation work
-	if(GenerationQueue.Num() > 0)
-	{
-		ProcessQueue();
-	}
+	// Logic moved to Subsystem
 }
 
 void AVoxelActor::OnConstruction(const FTransform& Transform)
@@ -63,173 +65,57 @@ void AVoxelActor::OnConstruction(const FTransform& Transform)
 	}
 }
 
-// 1. MATH CALCULATIONS
-// Request a voxel region around a center point with a given radius
-// Asynchronous version
 void AVoxelActor::RequestRegionAsyn(FVector Center, float Radius)
 {
-	// Copy the values to pass to the thread in a safe way
-
-	float LocalVoxelSize = VoxelSize;
-
-	Async(EAsyncExecution::ThreadPool,
-		[this, Center, Radius, LocalVoxelSize]()
-		{
-			//We are in the thread now
-			TArray<FIntVector> VoxelPositions;
-
-			int32 GridRadius = FMath::CeilToInt(Radius / LocalVoxelSize);
-
-			// Calculate voxel positions within the radius
-			int32 SideLenght = GridRadius * 2;
-
-			// Reserve memory for the volume (Cube Volume)
-			VoxelPositions.Reserve(SideLenght * SideLenght * SideLenght);
-
-			// Center in grid coordinates
-			FIntVector CenterGrid = WorldToGrid(Center);
-
-			// Iteration For each voxel in the cube volume
-			for (int32 x = -GridRadius; x <= GridRadius; x++)
-			{
-				for (int32 y = -GridRadius; y <= GridRadius; y++)
-				{
-					for (int32 z = -GridRadius; z <= GridRadius; z++)
-					{
-						if ((x * x + y * y * +z * z) <= (GridRadius * GridRadius))
-						{
-							VoxelPositions.Add(CenterGrid + FIntVector(x, y, z));
-						}
-					}
-				}
-			}
-
-			// We go back to the game thread to enqueue the work
-			AsyncTask(ENamedThreads::GameThread,
-				[this, VoxelPositions]()
-				{
-					for (const FIntVector& Coord : VoxelPositions)
-					{
-						// TODO: Better check which voxels are new and which are already present in the queue
-						if (!VoxelGrid.Contains(Coord))
-						{
-							GenerationQueue.AddUnique(Coord);
-						}
-					}
-				}
-			);
-		}
-	);
+	if (VoxelSubsystem)
+	{
+		VoxelSubsystem->RequestRegionAsyn(Center, Radius);
+	}
 }
 
-// 2 DISPATCHING AND PROCESSING
-void AVoxelActor::ProcessQueue()
+void AVoxelActor::OnVoxelUpdated(const FIntVector& Coord, EVoxelState NewState)
 {
-	int32 SentCount = 0;
+	if (!VoxelSubsystem) return;
 
-	while (GenerationQueue.Num() > 0 && SentCount < MaxRequestsPerTick)
+	FVector WorldPos = VoxelSubsystem->GridToWorld(Coord);
+	float CurrentVoxelSize = VoxelSubsystem->GetVoxelSize();
+
+	if (NewState == EVoxelState::Blocked)
 	{
-		FIntVector CurrentCoord = GenerationQueue.Pop();
+		// Calculate scale based on ue5 base cube: 100x100x100
+		float ScaleFactor = CurrentVoxelSize / 100.f;
+
+		FTransform InstanceTransform;
+		InstanceTransform.SetLocation(WorldPos);
+		InstanceTransform.SetScale3D(FVector(ScaleFactor));
+
+		//Add instance to HISM
+		//HISM_Block->AddInstance(InstanceTransform);
 		
-		// Skip if already present in the grid
-		if (VoxelGrid.Contains(CurrentCoord)) continue;
-
-		FVector WorldPos = GridToWorld(CurrentCoord);
-
-		// Bounds Check if inside the volume
-		FVector LocalPos = GetActorTransform().InverseTransformPosition(WorldPos);
-		FBox Bounds = FBox(-Volume->GetScaledBoxExtent(), Volume->GetScaledBoxExtent());
-
-		if (!Bounds.IsInside(LocalPos)) continue;
-
-		// Setup Async Physics Trace
-
-		FCollisionQueryParams QueryParams;
-		QueryParams.bTraceComplex = false;
-
-		// We make a smaller box for the trace to avoid edge cases
-		FCollisionShape BoxShape = FCollisionShape::MakeBox(FVector(VoxelSize / 2.f) * 0.9f);
-
-		// Start the async overlap trace
-		FTraceHandle TraceHandle = GetWorld()->AsyncOverlapByChannel(
-			WorldPos,										// Location to trace
-			FQuat::Identity,								// Rotation (no rotation for box)
-			ECollisionChannel::ECC_WorldStatic,				// Collision Channel
-			BoxShape,										// Collision Shape
-			QueryParams,									// Query Params
-			FCollisionResponseParams::DefaultResponseParam,	// Response Params
-			&OverlapDelegate								// Delegate for completion
-		);
-
-		//We add the trace handle to the pending map
-		PendingTraceHandle.Add(TraceHandle, CurrentCoord);
-		SentCount++;
+		// Debug Visuals
+		if(VoxelSubsystem->bShowVoxelDebug)
+		{
+			DrawDebugBox(GetWorld(), WorldPos, FVector(CurrentVoxelSize / 2.f), FColor::Red, true, 20.f); // Increased duration
+		}
 	}
-
-}
-
-// 3. RESULT AND RENDERING
-void AVoxelActor::OnTraceCompleted(const FTraceHandle& Handle, FOverlapDatum& OverlapData)
-{
-	if (FIntVector* FoundCoord = PendingTraceHandle.Find(Handle))
+	else if (NewState == EVoxelState::Free)
 	{
-		FIntVector Coord = *FoundCoord;
-		PendingTraceHandle.Remove(Handle);
-
-		bool bHit = OverlapData.OutOverlaps.Num() > 0;
-
-		// Update the voxel data
-		FVoxelData VoxelInfo;
-
-		// For now we render only if there is a hit
-		// TODO: Improve visualization
-		if (bHit)
+		// Just debug for free space
+		if (VoxelSubsystem->bShowVoxelDebug)
 		{
-			VoxelInfo.State = EVoxelState::Blocked;
-
-			FVector WorldPos = GridToWorld(Coord);
-
-			// Calculate scale based on ue5 base cube: 100x100x100
-			// If VoxelSize is 200, scale should be 2
-
-			float ScaleFactor = VoxelSize / 100.f;
-
-			FTransform InstanceTransform;
-			InstanceTransform.SetLocation(WorldPos);
-			InstanceTransform.SetScale3D(FVector(ScaleFactor));
-
-			//Add instance to HISM
-			//HISM_Block->AddInstance(InstanceTransform);
-			DrawDebugBox(GetWorld(), WorldPos, FVector(VoxelSize / 2.f), FColor::Red, true, 10.f);
-
-		}
-		else
-		{
-			VoxelInfo.State = EVoxelState::Free;
-
-			FVector WorldPos = GridToWorld(Coord);
-
-			DrawDebugBox(GetWorld(), WorldPos, FVector(VoxelSize / 2.f), FColor::Green, true, 10.f);
+			DrawDebugBox(GetWorld(), WorldPos, FVector(CurrentVoxelSize / 2.f), FColor::Green, true, 20.f);
 		}
 	}
 }
 
-FIntVector AVoxelActor::WorldToGrid(FVector WorldPosition) const
+void AVoxelActor::OnPathFound(const TArray<FVector>& PathPoints)
 {
-	// Convert world position to grid coordinates based on voxel size
-	return FIntVector(
-		FMath::FloorToInt(WorldPosition.X / VoxelSize),
-		FMath::FloorToInt(WorldPosition.Y / VoxelSize),
-		FMath::FloorToInt(WorldPosition.Z / VoxelSize)
-	);
-}
+	if (!VoxelSubsystem || !VoxelSubsystem->bShowPathfindingDebug) return;
 
-FVector AVoxelActor::GridToWorld(FIntVector GridPos) const
-{
-	// Convert grid coordinates back to world position based on voxel size
-	return FVector(
-		(GridPos.X * VoxelSize) + (VoxelSize / 2.f),
-		(GridPos.Y * VoxelSize) + (VoxelSize / 2.f),
-		(GridPos.Z * VoxelSize) + (VoxelSize / 2.f)
-	);
+	// Draw Path
+	for (int32 i = 0; i < PathPoints.Num() - 1; i++)
+	{
+		DrawDebugLine(GetWorld(), PathPoints[i], PathPoints[i+1], FColor::Cyan, false, 10.f, 0, 5.0f);
+		DrawDebugSphere(GetWorld(), PathPoints[i], 10.f, 8, FColor::Yellow, false, 10.f);
+	}
 }
