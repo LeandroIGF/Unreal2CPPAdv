@@ -243,6 +243,7 @@ void UVoxelGridSubsystem::PerformAStarSearch(FIntVector StartGrid, FIntVector En
 			UE_LOG(LogTemp, Error, TEXT("[A*] Start Position is BLOCKED state."));
 		}
 
+		// TODO: Control if we want to broadcast an empty path or a failure state
 		AsyncTask(ENamedThreads::GameThread, [this, PathPoints](){ OnOnPathFound.Broadcast(PathPoints); });
 		return;
 	}

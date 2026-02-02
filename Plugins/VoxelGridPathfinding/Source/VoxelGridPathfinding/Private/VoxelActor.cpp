@@ -1,6 +1,7 @@
 
 #include "VoxelActor.h"
 #include "VoxelGridSubsystem.h"
+//#include "VoxelTickableSubsystem.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 
@@ -34,7 +35,6 @@ void AVoxelActor::BeginPlay()
 
 	if (VoxelSubsystem)
 	{
-		// 配置 Subsystem
 		// VoxelSubsystem->InitializeGrid(VoxelSize, MaxRequestsPerTick); // Config is auto via settings now
 
 		// Bind to updates
@@ -110,12 +110,18 @@ void AVoxelActor::OnVoxelUpdated(const FIntVector& Coord, EVoxelState NewState)
 
 void AVoxelActor::OnPathFound(const TArray<FVector>& PathPoints)
 {
+
 	if (!VoxelSubsystem || !VoxelSubsystem->bShowPathfindingDebug) return;
+
+	if (PathPoints.IsEmpty()) return;
 
 	// Draw Path
 	for (int32 i = 0; i < PathPoints.Num() - 1; i++)
 	{
-		DrawDebugLine(GetWorld(), PathPoints[i], PathPoints[i+1], FColor::Cyan, false, 10.f, 0, 5.0f);
+		
+		DrawDebugLine(GetWorld(), PathPoints[i], PathPoints[i + 1], FColor::Cyan, false, 10.f, 0, 5.0f);				
 		DrawDebugSphere(GetWorld(), PathPoints[i], 10.f, 8, FColor::Yellow, false, 10.f);
 	}
+
+	DrawDebugSphere(GetWorld(), PathPoints[PathPoints.Num() - 1], 10.f, 8, FColor::Yellow, false, 10.f);
 }
