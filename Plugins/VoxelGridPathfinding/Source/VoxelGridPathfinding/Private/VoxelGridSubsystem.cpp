@@ -66,37 +66,50 @@ void UVoxelGridSubsystem::Tick(float DeltaTime)
 	}
 }
 
-void UVoxelGridSubsystem::RequestRegionAsyn(FVector Center, float Radius)
+void UVoxelGridSubsystem::RequestRegionAsyn(FVector Center, float Radius, FVector BoxExtent)
 {
 	// Copy the values to pass to the thread in a safe way
 	float LocalVoxelSize = VoxelSize;
 
 	// Lambda capture by value for thread safety
 	Async(EAsyncExecution::ThreadPool,
-		[this, Center, Radius, LocalVoxelSize]()
+		[this, Center, Radius, LocalVoxelSize, BoxExtent]()
 		{
 			//We are in the thread now
-			TArray<FIntVector> VoxelPositions;
-			int32 GridRadius = FMath::CeilToInt(Radius / LocalVoxelSize);
 
-			// Calculate voxel positions within the radius
-			int32 SideLenght = GridRadius * 2;
-			VoxelPositions.Reserve(SideLenght * SideLenght * SideLenght);
+			// Calculate the lenghts of the box
+			FVector SideLenghtsVector = (BoxExtent) * 2 ;
+
+			UE_LOG(LogTemp, Error, TEXT("[A*] SIDELENGHTS IN WORLD UNITS: x: %f, y: %f, z: %f  "), SideLenghtsVector.X, SideLenghtsVector.Y, SideLenghtsVector.Z);
+
+			// Calculate the lenghts of the box in voxel units
+			FIntVector SideLenghtsInt = FIntVector(
+				FMath::CeilToInt(SideLenghtsVector.X / LocalVoxelSize),
+				FMath::CeilToInt(SideLenghtsVector.Y / LocalVoxelSize),
+				FMath::CeilToInt(SideLenghtsVector.Z / LocalVoxelSize)
+			);
+
+			UE_LOG(LogTemp, Error, TEXT("[A*] SIDELENGHTS IN VOXEL: x: %i, y: %i, z: %i  "), SideLenghtsInt.X, SideLenghtsInt.Y, SideLenghtsInt.Z);
+
+			TArray<FIntVector> VoxelPositions;
+
+			VoxelPositions.Reserve(SideLenghtsInt.X * SideLenghtsInt.Y * SideLenghtsInt.Z);
+
+			SideLenghtsInt /= 2; // To start calculating the voxels from the center of the volume
 
 			// Center in grid coordinates
 			FIntVector CenterGrid = WorldToGrid(Center);
 
+			UE_LOG(LogTemp, Error, TEXT("[A*] HALF SIDELENGHTS IN VOXEL: x: %i, y: %i, z: %i  "), SideLenghtsInt.X, SideLenghtsInt.Y, SideLenghtsInt.Z);
+
 			// Iteration For each voxel in the cube volume
-			for (int32 x = -GridRadius; x <= GridRadius; x++)
+			for (int32 x = -SideLenghtsInt.X; x <= SideLenghtsInt.X; x++)
 			{
-				for (int32 y = -GridRadius; y <= GridRadius; y++)
+				for (int32 y = -SideLenghtsInt.Y; y <= SideLenghtsInt.Y; y++)
 				{
-					for (int32 z = -GridRadius; z <= GridRadius; z++)
-					{
-						if ((x * x + y * y * +z * z) <= (GridRadius * GridRadius))
-						{
-							VoxelPositions.Add(CenterGrid + FIntVector(x, y, z));
-						}
+					for (int32 z = -SideLenghtsInt.Z; z <= SideLenghtsInt.Z; z++)
+					{						
+						VoxelPositions.Add(CenterGrid + FIntVector(x, y, z));
 					}
 				}
 			}
@@ -187,7 +200,7 @@ void UVoxelGridSubsystem::OnTraceCompleted(const FTraceHandle& Handle, FOverlapD
 
 // --- PATHFINDING ---
 
-void UVoxelGridSubsystem::FindPathAsync(FVector StartWorld, FVector EndWorld)
+void UVoxelGridSubsystem::FindPathAsync(FVector StartWorld, FVector EndWorld, int32 IDRequest)
 {
 	// Copia sicura dei dati necessari per il thread
 	// Nota: Copiare una TMap gigante puo' essere pesante. 
@@ -207,13 +220,13 @@ void UVoxelGridSubsystem::FindPathAsync(FVector StartWorld, FVector EndWorld)
 	float LocalVoxelSize = VoxelSize;
 
 	// Lancio task
-	Async(EAsyncExecution::ThreadPool, [this, StartGrid, EndGrid, LocalVoxelSize, StartWorld]()
+	Async(EAsyncExecution::ThreadPool, [this, StartGrid, EndGrid, LocalVoxelSize, StartWorld, IDRequest]()
 	{
-		PerformAStarSearch(StartGrid, EndGrid, LocalVoxelSize, StartWorld);
+		PerformAStarSearch(StartGrid, EndGrid, LocalVoxelSize, StartWorld, IDRequest);
 	});
 }
 
-void UVoxelGridSubsystem::PerformAStarSearch(FIntVector StartGrid, FIntVector EndGrid, float LocalVoxelSize, FVector StartWorld)
+void UVoxelGridSubsystem::PerformAStarSearch(FIntVector StartGrid, FIntVector EndGrid, float LocalVoxelSize, FVector StartWorld, int32 IDRequest)
 {
 	UE_LOG(LogTemp, Warning, TEXT("[A*] Start Pathfinding from %s to %s"), *StartGrid.ToString(), *EndGrid.ToString());
 
@@ -244,7 +257,7 @@ void UVoxelGridSubsystem::PerformAStarSearch(FIntVector StartGrid, FIntVector En
 		}
 
 		// TODO: Control if we want to broadcast an empty path or a failure state
-		AsyncTask(ENamedThreads::GameThread, [this, PathPoints](){ OnOnPathFound.Broadcast(PathPoints); });
+		AsyncTask(ENamedThreads::GameThread, [this, PathPoints, IDRequest](){ OnOnPathFound.Broadcast(PathPoints, IDRequest); });
 		return;
 	}
 
@@ -257,13 +270,28 @@ void UVoxelGridSubsystem::PerformAStarSearch(FIntVector StartGrid, FIntVector En
 	// Directions (6 neighbors)
 	// Spostate fuori dalla lambda e rese un semplice array locale
 	FIntVector Directions[] = {
-		FIntVector(1,0,0), FIntVector(-1,0,0),
-		FIntVector(0,1,0), FIntVector(0,-1,0),
-		FIntVector(0,0,1), FIntVector(0,0,-1)
+		FIntVector(1,0,0), FIntVector(-1,0,0),		// Davanti e dietro
+		FIntVector(0,1,0), FIntVector(0,-1,0),		// Destra e Sinistra
+		FIntVector(0,0,1), FIntVector(0,0,-1),		// Sopra e sotto
+		//Aggiungiamo delle direzioni
+		/*
+		FIntVector(1,1,0), FIntVector(1,-1,0),		// Davanti Destra, Davanti sinistra
+		FIntVector(-1,1,0), FIntVector(-1,-1,0),	// Dietro Destra, Dietro Sinistra
+		FIntVector(1,1,1), FIntVector(1,-1,1),		// Davanti Destra sopra, Davanti sinistra sopra
+		FIntVector(-1,1,1), FIntVector(-1,-1,1),	// Dietro Destra Sopra, Dietro Sinistra sopra
+		FIntVector(1,1,-1), FIntVector(1,-1,-1),	// Davanti Destra sotto, Davanti sinistra sotto
+		FIntVector(-1,1,-1), FIntVector(-1,-1,-1),	// Dietro Destra sotto, Dietro Sinistra sotto
+
+		FIntVector(1,0,1), FIntVector(1,0,-1),		// Davanti Sopra, Davanti sotto
+		FIntVector(-1,0,1), FIntVector(-1,0,-1),	// Dietro Sopra, Dietro Sotto
+
+		FIntVector(0,1,1), FIntVector(0,-1,1),		// Destra Sopra, Sinistra Sopra
+		FIntVector(0,1,-1), FIntVector(0,-1,-1)		// Destra sotto, Sinistra Sotto
+		*/
 	};
 
 	bool bFound = false;
-	int32 MaxIter = 5000; 
+	int32 MaxIter = 50000; 
 	int32 IterCount = 0;
 
 	while(OpenSet.Num() > 0 && IterCount < MaxIter)
@@ -363,9 +391,9 @@ void UVoxelGridSubsystem::PerformAStarSearch(FIntVector StartGrid, FIntVector En
 	}
 
 	// Finished, back to game thread
-	AsyncTask(ENamedThreads::GameThread, [this, PathPoints]()
+	AsyncTask(ENamedThreads::GameThread, [this, PathPoints, IDRequest]()
 	{
-		OnOnPathFound.Broadcast(PathPoints);
+		OnOnPathFound.Broadcast(PathPoints, IDRequest);
 	});
 }
 
@@ -386,4 +414,12 @@ FVector UVoxelGridSubsystem::GridToWorld(FIntVector GridPos) const
 		(GridPos.Y * VoxelSize) + (VoxelSize / 2.f),
 		(GridPos.Z * VoxelSize) + (VoxelSize / 2.f)
 	);
+}
+
+int32 UVoxelGridSubsystem::GetNextIdRequest()
+{
+	// TODO: Use a better ID management system (recycle IDs, etc.)
+	int32 NextRequest = IDRequests.Num() + 1;
+	IDRequests.Add(NextRequest);
+	return NextRequest;
 }

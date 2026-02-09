@@ -111,6 +111,7 @@ private:
 	// config data
 	float VoxelSize = 100.f;
 	int32 MaxRequestsPerTick = 5;
+	int32 MaxIterInternal = 300000;
 
 	// Internal Data
 

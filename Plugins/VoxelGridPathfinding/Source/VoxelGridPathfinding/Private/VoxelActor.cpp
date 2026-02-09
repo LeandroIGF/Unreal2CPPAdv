@@ -69,7 +69,7 @@ void AVoxelActor::RequestRegionAsyn(FVector Center, float Radius)
 {
 	if (VoxelSubsystem)
 	{
-		VoxelSubsystem->RequestRegionAsyn(Center, Radius);
+		VoxelSubsystem->RequestRegionAsyn(Center, Radius, Volume->GetScaledBoxExtent());
 	}
 }
 
@@ -108,7 +108,7 @@ void AVoxelActor::OnVoxelUpdated(const FIntVector& Coord, EVoxelState NewState)
 	}
 }
 
-void AVoxelActor::OnPathFound(const TArray<FVector>& PathPoints)
+void AVoxelActor::OnPathFound(const TArray<FVector>& PathPoints, const int32 IDRequest)
 {
 
 	if (!VoxelSubsystem || !VoxelSubsystem->bShowPathfindingDebug) return;
@@ -124,4 +124,15 @@ void AVoxelActor::OnPathFound(const TArray<FVector>& PathPoints)
 	}
 
 	DrawDebugSphere(GetWorld(), PathPoints[PathPoints.Num() - 1], 10.f, 8, FColor::Yellow, false, 10.f);
+
+	if (PawnsRegistered.Contains(IDRequest))
+	{
+		APawn* Receiver = PawnsRegistered.FindRef(IDRequest);
+
+		if (IsValid(Receiver))
+		{
+			// restituisco i punti tramite il volume
+			// TODO: Create an interface to return the points directly to the pawn
+		}
+	}
 }

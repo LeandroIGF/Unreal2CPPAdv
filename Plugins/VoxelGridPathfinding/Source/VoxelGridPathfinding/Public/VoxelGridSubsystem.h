@@ -56,11 +56,12 @@ public:
 	// --- API FUNCTIONS ---
     
 	UFUNCTION(BlueprintCallable, Category = "Voxel Grid")
-	void RequestRegionAsyn(FVector Center, float Radius);
+	void RequestRegionAsyn(FVector Center, float Radius, FVector BoxExtent);
 
 	// --- HELPERS ---
 	FIntVector WorldToGrid(FVector WorldPosition) const;
 	FVector GridToWorld(FIntVector GridPos) const;
+	int32 GetNextIdRequest();
 	
 	// Accesso sola lettura alla griglia
 	// Accesso sola lettura alla griglia
@@ -74,17 +75,22 @@ public:
 	// --- EVENTS ---
 	
 	// Delegato per restituire il percorso trovato (in coordinate World)
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPathFound, const TArray<FVector>&, PathPoints);
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPathFound, const TArray<FVector>&, PathPoints, const int32, IDRequest);
 
 	UPROPERTY(BlueprintAssignable, Category = "Voxel Grid")
 	FOnPathFound OnOnPathFound; // Note: Typo in original request fix if needed, standard is OnPathFound. I will use OnPathFound.
 
 	UPROPERTY(BlueprintAssignable, Category = "Voxel Grid")
 	FOnVoxelUpdated OnVoxelUpdated;
+
+
 	
 	// --- PATHFINDING ---
+
+	TArray<int32> IDRequests;
+
 	UFUNCTION(BlueprintCallable, Category = "Voxel Pathfinding")
-	void FindPathAsync(FVector StartWorld, FVector EndWorld);
+	void FindPathAsync(FVector StartWorld, FVector EndWorld, int32 IDRequest);
 
 private:
 
@@ -109,5 +115,5 @@ private:
 	// --- LOGIC ---
 	void ProcessQueue();
 	void OnTraceCompleted(const FTraceHandle& Handle, FOverlapDatum& OverlapData);
-	void PerformAStarSearch(FIntVector StartGrid, FIntVector EndGrid, float LocalVoxelSize, FVector StartWorld);
+	void PerformAStarSearch(FIntVector StartGrid, FIntVector EndGrid, float LocalVoxelSize, FVector StartWorld, int32 IDRequest);
 };

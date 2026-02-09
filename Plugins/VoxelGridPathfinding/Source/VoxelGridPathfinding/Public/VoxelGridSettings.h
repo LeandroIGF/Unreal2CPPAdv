@@ -24,6 +24,10 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category = "Performance")
 	int32 MaxRequestsPerTick = 5;
 
+	/** Max pathfinding/generation requests to process per tick */
+	UPROPERTY(EditAnywhere, Config, Category = "Performance")
+	int32 MaxIters = 300000;
+
 	/** Show debug visualization for Voxel Grid generation (Free/Blocked) */
 	UPROPERTY(EditAnywhere, Config, Category = "Debug")
 	bool bShowVoxelDebug = true;

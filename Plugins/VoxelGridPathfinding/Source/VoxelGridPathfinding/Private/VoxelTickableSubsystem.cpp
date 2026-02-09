@@ -21,6 +21,8 @@ void UVoxelTickableSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		VoxelSize = Settings->VoxelSize;
 		MaxRequestsPerTick = Settings->MaxRequestsPerTick;
 
+		MaxIterInternal = Settings->MaxIters;
+
 		bShowVoxelDebug = Settings->bShowVoxelDebug;
 		bShowPathfindingDebug = Settings->bShowPathfindingDebug;
 	}
@@ -266,10 +268,10 @@ void UVoxelTickableSubsystem::PerformAStarSearchTick(FIntVector StartGrid, FIntV
 	};
 
 	bool bFound = false;
-	int32 MaxIter = 10000;
+	//int32 MaxIter = 10000;
 	int32 IterCount = 0;
 
-	while (OpenSet.Num() > 0 && IterCount < MaxIter)
+	while (OpenSet.Num() > 0 && IterCount < MaxIterInternal)
 	{
 		IterCount++;
 
@@ -367,7 +369,7 @@ void UVoxelTickableSubsystem::PerformAStarSearchTick(FIntVector StartGrid, FIntV
 		UE_LOG(LogTemp, Error, TEXT("[A*] FAILED TO FIND THE PATH"));
 		UE_LOG(LogTemp, Error, TEXT("[A*] OpenSet Empty: %s, MaxIter Reached: %s"),
 			(OpenSet.Num() == 0 ? TEXT("Yes") : TEXT("No")),
-			(IterCount >= MaxIter ? TEXT("Yes") : TEXT("No")));
+			(IterCount >= MaxIterInternal ? TEXT("Yes") : TEXT("No")));
 	}
 
 	// FINISHED!, BACK TO GAME THREAD

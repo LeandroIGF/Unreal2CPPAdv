@@ -54,6 +54,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Voxel Grid")
 	void RequestRegionAsyn(FVector Center, float Radius);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawns")
+	TMap<int32, APawn*> PawnsRegistered;
+
 private:
 
 	// Reference to Subsystem
@@ -65,6 +68,6 @@ private:
 	void OnVoxelUpdated(const FIntVector& Coord, EVoxelState NewState);
 
 	UFUNCTION()
-	void OnPathFound(const TArray<FVector>& PathPoints);
+	void OnPathFound(const TArray<FVector>& PathPoints, const int32 IDRequest);
 
 };
