@@ -41,9 +41,19 @@ void ULevelManagementSubsystem::Deinitialize()
 
 ULevelStreamingDynamic* ULevelManagementSubsystem::LoadNextRoom(FTransform LevelSpawnTransform, bool &OutSuccess, const FString& OptionalLevelNameOverride, TSubclassOf<ULevelStreamingDynamic> OptionalLevelStreamingClass, bool bLoadAsTempPackage)
 {
+
+	if(LevelsTemplatesMap.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("LevelsTemplatesMap is empty. Please check your DungeonSettings."));
+		OutSuccess = false;
+		return nullptr;
+	}
+
 	//Get keys from map
 	TArray<FString> Keys;
 	LevelsTemplatesMap.GetKeys(Keys);
+
+
 
 	//Get random value
 	int32 Indexes = Keys.Num() - 1;

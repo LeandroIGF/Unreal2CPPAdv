@@ -22,13 +22,12 @@ public:
 	UDungeonSettings();
 
 	/*Table of levels to load from*/
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Level Management")
+	UPROPERTY(EditAnywhere, Config, Category = "Level Management")
 	TMap<FString, FLevelInfo> LevelsTemplatesMap;
 
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Level Management|Debug")
+	UPROPERTY(EditAnywhere, Config, Category = "Level Management|Debug")
 	bool UseFixedSeed;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Level Management|Debug")
+	UPROPERTY(EditAnywhere, Config, Category = "Level Management|Debug")
 	int32 FixedSeedToUse;
 };
