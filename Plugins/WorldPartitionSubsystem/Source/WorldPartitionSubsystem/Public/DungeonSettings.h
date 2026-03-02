@@ -25,9 +25,11 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category = "Level Management")
 	TMap<FString, FLevelInfo> LevelsTemplatesMap;
 
+	/*True if you want to debug with a fixed seed*/
 	UPROPERTY(EditAnywhere, Config, Category = "Level Management|Debug")
 	bool UseFixedSeed;
 
+	/*If UseFixedSeed is true, this seed will overwrite any seed at the start of each run*/
 	UPROPERTY(EditAnywhere, Config, Category = "Level Management|Debug")
 	int32 FixedSeedToUse;
 };
