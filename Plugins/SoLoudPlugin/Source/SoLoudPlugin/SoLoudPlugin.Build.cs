@@ -29,8 +29,7 @@ public class SoLoudPlugin : ModuleRules
 				Path.Combine(SoLoudPath, "src/audiosource/wav"),
 				Path.Combine(SoLoudPath, "src/backend/sdl2_static"),
             }
-			);
-			
+		);		
 		
 		
 		// AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
@@ -51,7 +50,7 @@ public class SoLoudPlugin : ModuleRules
                 //"SDL2"
 				// ... add other public dependencies that you statically link with here ...
 			}
-			);
+		);
 			
 		
 		PrivateDependencyModuleNames.AddRange(

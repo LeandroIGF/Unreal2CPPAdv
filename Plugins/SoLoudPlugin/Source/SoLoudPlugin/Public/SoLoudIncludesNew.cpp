@@ -64,9 +64,6 @@ THIRD_PARTY_INCLUDES_START
 #include "soloud_wav.cpp"
 #include "soloud_wavstream.cpp"
 
-
-
-
 #pragma warning(pop) // Ripristina i warning dopo i file di terze parti
 
 THIRD_PARTY_INCLUDES_END

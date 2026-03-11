@@ -9,7 +9,7 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(BlueprintType)
 class SOLOUDPLUGIN_API USoLoudAudioAsset : public UObject
 {
 	GENERATED_BODY()
