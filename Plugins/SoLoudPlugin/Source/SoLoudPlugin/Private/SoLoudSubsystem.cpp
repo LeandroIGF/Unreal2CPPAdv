@@ -1,8 +1,6 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "SoLoudSubsystem.h"
-
 #include "Misc/Paths.h"
 
 void USoLoudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -28,21 +26,47 @@ void USoLoudSubsystem::Deinitialize()
         // 2. Chiudi il backend audio (fondamentale per rilasciare WASAPI)
         SoloudEngine->deinit();
 
-        // 3. Ora lo smart pointer può morire in pace
+        // 3. Ora lo smart pointer puo' morire in pace
         //SoloudEngine.Reset();
     }
+    
+    // Pulisci i dati allocati manualmente
+    for (auto& Pair : LoadedAudioResources)
+    {
+        if (Pair.Value.WavInstance)
+        {
+            delete Pair.Value.WavInstance;
+            Pair.Value.WavInstance = nullptr;
+        }
+    }
+    LoadedAudioResources.Empty();
+
     Super::Deinitialize();
 }
 
-void USoLoudSubsystem::PlayTestSound(FString FilePath)
+void USoLoudSubsystem::PlayTestSound(USoLoudAudioAsset* AssetToPlay)
 {
     if (SoloudEngine.IsValid())
     {
-        // Carichiamo un file .wav (percorso assoluto per ora)
-        TestSound.load(TCHAR_TO_ANSI(*FilePath));
+        if (!AssetToPlay || AssetToPlay->RawAudioData.IsEmpty()) return;
 
-        // Suoniamo!
-        SoloudEngine->play(TestSound);
+        // Lazy Loading: Carichiamo in SoLoud solo se non gia' presente
+        if (!LoadedAudioResources.Contains(AssetToPlay))
+        {
+            // Crea l'elemento direttamente nella mappa. Evitiamo stack alloc copy/move che distruggevano i puntatori
+            FSoLoudWavResource& NewResource = LoadedAudioResources.Add(AssetToPlay);
+            NewResource.WavInstance = new SoLoud::Wav();
+
+            // Link diretto alla memoria dell'Asset (No Copy, No Ownership)
+            NewResource.WavInstance->loadMem(
+                AssetToPlay->RawAudioData.GetData(),
+                AssetToPlay->RawAudioData.Num(),
+                false,
+                false
+            );
+        }
+
+        SoloudEngine->play(*LoadedAudioResources[AssetToPlay].WavInstance);
     }
 }
 
@@ -82,4 +106,19 @@ int32 USoLoudSubsystem::Play3DSound(FString FullPath, FVector Location)
         return (int32)Handle;
     }
     return 0;
+}
+
+void USoLoudSubsystem::UnloadAudioAsset(USoLoudAudioAsset* AssetToUnload)
+{    
+    if (FSoLoudWavResource* Resource = LoadedAudioResources.Find(AssetToUnload))
+    {
+        if (Resource->WavInstance)
+        {
+            delete Resource->WavInstance;
+            Resource->WavInstance = nullptr;
+        }
+        
+        // Rimuovendo dalla mappa, l'asset diventa eleggibile per il Garbage Collector
+        LoadedAudioResources.Remove(AssetToUnload);    
+    }
 }
