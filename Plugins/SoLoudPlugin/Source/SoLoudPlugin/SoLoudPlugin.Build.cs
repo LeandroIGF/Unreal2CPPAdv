@@ -34,7 +34,7 @@ public class SoLoudPlugin : ModuleRules
 		
 		// AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
 		PublicAdditionalLibraries.Add(Path.Combine(Sdl2Path, "lib", "x64", "SDL2.lib"));
-		RuntimeDependencies.Add("$(PluginDir)/Binaries/Win64/SDL2.dll");
+		//RuntimeDependencies.Add("$(PluginDir)/Binaries/Win64/SDL2.dll");
 
 		PublicDefinitions.Add("WITH_SDL2_STATIC=1");
 		PublicDefinitions.Add("SOLOUD_DLL_EXPORT=1");
@@ -42,6 +42,28 @@ public class SoLoudPlugin : ModuleRules
         // Disabilitiamo i warning che bloccherebbero la build
 		CppCompileWarningSettings.UndefinedIdentifierWarningLevel = WarningLevel.Off;
 		CppCompileWarningSettings.ShadowVariableWarningLevel = WarningLevel.Off;
+
+        if (Target.Platform == UnrealTargetPlatform.Win64)
+        {
+            PublicDelayLoadDLLs.Add("SDL2.dll");
+
+            // Risaliamo dalla cartella Source del plugin alla cartella Binaries
+            // Struttura: Plugins/SoLoudPlugin/Source/SoLoudPlugin -> ../../Binaries/Win64/
+            string PluginBinariesDir = Path.Combine(ModuleDirectory, "../../Resources");
+            string SDL2DllPath = Path.Combine(PluginBinariesDir, "SDL2.dll");
+
+            // Verifichiamo se il file esiste davvero per evitare altri errori di build
+            if (File.Exists(SDL2DllPath))
+            {
+                // Diciamo a Unreal: "Prendi la DLL da qui e assicurati che finisca nell'output finale"
+                RuntimeDependencies.Add("$(BinaryOutputDir)/SDL2.dll", SDL2DllPath);
+            }
+            else
+            {
+                // Se non la trova, stampiamo un errore chiaro nel log di compilazione
+                System.Console.WriteLine("ERRORE: SDL2.dll non trovata in: " + SDL2DllPath);
+            }
+        }
 
         PublicDependencyModuleNames.AddRange(
 			new string[]
