@@ -9,6 +9,11 @@ void USoLoudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
     // 1. Creiamo l'istanza con MakeUnique (nessun 'new' esplicito!)
     SoloudEngine = MakeUnique<SoLoud::Soloud>();
+    
+
+    //SoloudEngine2 = SoloudEngine;
+
+    
 
     // 2. Inizializziamo il motore (attiva il thread audio di WASAPI)
     SoloudEngine->init();
