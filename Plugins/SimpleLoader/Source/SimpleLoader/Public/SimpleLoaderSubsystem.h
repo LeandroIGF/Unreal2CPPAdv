@@ -39,6 +39,10 @@ public:
   UFUNCTION(BlueprintCallable, Category = "Loading")
   void SimpleStartAsyncLoading(TArray<FPrimaryAssetId> AssetsToLoad, TArray<FName> Bundles);
 
+
+  UFUNCTION(BlueprintCallable, Category = "SimpleLoader|Load")
+  void LoadPrimaryAssetsWithBundles(TArray<FPrimaryAssetId> AssetsToLoad, TArray<FName> Bundles);
+
   // Getting the current loading progress (0.0 to 1.0)
   UFUNCTION(BlueprintPure, Category = "Loading")
   float GetLoadingProgress() const;
@@ -59,6 +63,8 @@ public:
 private:
   // Handle from the Asset Manager for the current loading operation
   TSharedPtr<FStreamableHandle> LoadingHandle;
+
+  TSharedPtr<FStreamableHandle> LoadingAssetsHandle;
 
   // Callback chiamata dall'Asset Manager al termine
   void OnLoadCompleted();

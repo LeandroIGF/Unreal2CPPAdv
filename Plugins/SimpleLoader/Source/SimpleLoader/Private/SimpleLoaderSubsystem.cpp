@@ -14,9 +14,7 @@ void USimpleLoaderSubsystem::Deinitialize()
 
 void USimpleLoaderSubsystem::SimpleStartAsyncLoading(TArray<FPrimaryAssetId> AssetsToLoad, TArray<FName> Bundles) 
 {
-      UAssetManager &Manager = UAssetManager::Get();
-
-      
+      UAssetManager &Manager = UAssetManager::Get();      
 
       // Start loading the assets asynchronously and store the handle to track
       // progress
@@ -26,12 +24,33 @@ void USimpleLoaderSubsystem::SimpleStartAsyncLoading(TArray<FPrimaryAssetId> Ass
               this, &USimpleLoaderSubsystem::OnLoadCompleted));
 
       if (LoadingHandle.IsValid()) 
-      {
-          
+      {          
         // Start a timer to periodically check the loading progress
         GetWorld()->GetTimerManager().SetTimer(
             TimerHandle, this, &USimpleLoaderSubsystem::UpdateProgress, 0.1f, true);
       }
+}
+
+void USimpleLoaderSubsystem::LoadPrimaryAssetsWithBundles(TArray<FPrimaryAssetId> AssetsToLoad, TArray<FName> Bundles)
+{
+    UAssetManager& AssetManager = UAssetManager::Get();
+
+    LoadingAssetsHandle = AssetManager.LoadPrimaryAssets(
+        AssetsToLoad, Bundles,
+        FStreamableDelegate::CreateUObject(this, &USimpleLoaderSubsystem::OnLoadCompleted)
+    );
+
+    if (LoadingHandle.IsValid())
+    {
+        if (!IsValid(GetWorld()))
+        {
+            UE_LOG(LogTemp, Display, TEXT("WORLD NOT VALID!"));
+            return;
+        }
+
+        GetWorld()->GetTimerManager().SetTimer(
+            TimerHandle, this, &USimpleLoaderSubsystem::UpdateProgress, 0.1, true);
+    }
 }
 
 float USimpleLoaderSubsystem::GetLoadingProgress() const 
@@ -109,7 +128,6 @@ UPrimaryDataAsset* USimpleLoaderSubsystem::GetLoadedPrimaryAsset(FPrimaryAssetId
     if (LoadedPrimaryAsset && LoadedPrimaryAsset->IsA(AssetClass))
     {
         return LoadedPrimaryAsset;
-
     }
     return nullptr;
 }
