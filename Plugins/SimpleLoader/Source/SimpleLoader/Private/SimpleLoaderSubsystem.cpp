@@ -35,7 +35,7 @@ void USimpleLoaderSubsystem::LoadPrimaryAssetsWithBundles(TArray<FPrimaryAssetId
 {
     UAssetManager& AssetManager = UAssetManager::Get();
 
-    LoadingAssetsHandle = AssetManager.LoadPrimaryAssets(
+    LoadingHandle = AssetManager.LoadPrimaryAssets(
         AssetsToLoad, Bundles,
         FStreamableDelegate::CreateUObject(this, &USimpleLoaderSubsystem::OnLoadCompleted)
     );
